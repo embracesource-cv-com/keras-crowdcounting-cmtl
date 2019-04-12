@@ -29,7 +29,8 @@ class DataLoader(object):
                 Y_den, 密度图GT, shape(num_samples, h, w, 1);
                 Y_count, 类别GT, shape(num_samples, num_classes)
         """
-        for fname in self.data_files:
+        print('[INFO] Loading data, wait a moment...')
+        for i, fname in enumerate(self.data_files, 1):
             img = cv2.imread(os.path.join(self.data_path, fname), 0)
             img = img.astype(np.float32, copy=False)
             ht = img.shape[0]
@@ -56,6 +57,10 @@ class DataLoader(object):
             blob['gt_count'] = gt_count
             blob['fname'] = fname
             self.blob_list.append(blob)
+
+            if i % 100 == 0:
+                print('Loaded {}/{} files'.format(i, self.num_samples))
+        print('[INFO] Completed loading {} files.'.format(i))
 
         self.assign_classes()  # 设置图片类别
         if self.shuffle:
