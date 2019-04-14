@@ -21,7 +21,6 @@ def main(args):
     train_data_loader = DataLoader(train_path, train_gt_path, shuffle=True, gt_downsample=False)
     val_data_loader = DataLoader(val_path, val_gt_path, shuffle=False, gt_downsample=False)
     # 加载数据
-    print('Loading data, wait a moment...')
     train_X, train_Y_den, train_Y_class = train_data_loader.load_all()
     val_X, val_Y_den, val_Y_class = val_data_loader.load_all()
     class_weights = train_data_loader.get_class_weights()
@@ -45,4 +44,11 @@ def main(args):
     # 训练
     model.fit(train_X, {"output_density": train_Y_den, "output_class": train_Y_class},
               validation_data=(val_X, {"output_density": val_Y_den, "output_class": val_Y_class}),
-              batch_size=1, epochs=cfg.EPOCHS, callbacks=callback_list)
+              batch_size=1, epochs=cfg.EPOCHS, callbacks=callback_list, class_weight=class_weights)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset", help="the dataset you want to train", choices=['A', 'B'])
+    args = parser.parse_args()
+    main(args)
