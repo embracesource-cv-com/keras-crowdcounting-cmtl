@@ -29,10 +29,11 @@ def main(args):
     input_shape = (None, None, 1)
     model = CMTL(input_shape)
     adam = Adam(lr=0.00001)
-    loss = {'output_density': 'mse', 'output_class': 'categorical_crossentropy'}
-    loss_weights = {'output_density': 1.0, 'output_class': 0.0001}
+    loss = {'density': 'mse', 'cls': 'binary_crossentropy'}
+    loss_weights = {'density': 1.0, 'cls': 0.0001}
+    print('[INFO] Compiling model ...'.format(dataset))
     model.compile(optimizer=adam, loss=loss, loss_weights=loss_weights,
-                  metrics={'output_density': [MAE, MSE]})
+                  metrics={'density': [MAE, MSE]})
 
     # 定义callback
     checkpointer_best_train = ModelCheckpoint(
@@ -41,10 +42,16 @@ def main(args):
     )
     callback_list = [checkpointer_best_train]
 
+    # 随机数据增广
+    print('[INFO] Random data augment ...'.format(dataset))
+    train_X, train_Y_den = train_data_loader.random_augment(train_X, train_Y_den)
     # 训练
-    model.fit(train_X, {"output_density": train_Y_den, "output_class": train_Y_class},
-              validation_data=(val_X, {"output_density": val_Y_den, "output_class": val_Y_class}),
-              batch_size=1, epochs=cfg.EPOCHS, callbacks=callback_list, class_weight=class_weights)
+    print('[INFO] Training Part_{} ...'.format(dataset))
+    model.fit(train_X,
+              {"density": train_Y_den, "cls": train_Y_class},
+              validation_data=(val_X, {"density": val_Y_den, "cls": val_Y_class}),
+              batch_size=1, epochs=cfg.EPOCHS, callbacks=callback_list,
+              class_weight={"cls": class_weights})
 
 
 if __name__ == '__main__':
