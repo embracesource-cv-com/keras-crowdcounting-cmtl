@@ -92,6 +92,7 @@ class DataLoader(object):
         return class_weights
 
     def flow(self, batch_size=32):
+        # todo: generate data in batch to save memory
         loop_count = self.num_samples // batch_size
         while True:
             np.random.shuffle(self.blob_list)
@@ -99,8 +100,26 @@ class DataLoader(object):
                 blobs = self.blob_list[i*batch_size: (i+1)*batch_size]
                 X = np.array([blob['data'] for blob in blobs])
                 Y_den = np.array([blob['gt_den'] for blob in blobs])
+                X, Y_den = self.random_augment(X, Y_den)  # 随机增广
                 Y_class = np.array([blob['gt_class'] for blob in blobs])
                 yield X, Y_den, Y_class
+
+    @staticmethod
+    def random_augment(imgs, gts):
+        """随机增广"""
+        imgs_aug = []
+        gts_aug = []
+        for img, gt in zip(imgs, gts):
+            if np.random.uniform() > 0.5:
+                # 随机翻转图片以及density map
+                img = np.flip(img, 3).copy()
+                gt = np.flip(gt, 3).copy()
+            if np.random.uniform() > 0.5:
+                # 加入随机噪音
+                img = img + np.random.uniform(-10, 10, size=img.shape)
+            imgs_aug.append(img)
+            gts_aug.append(gt)
+        return np.array(imgs_aug), np.array(gts_aug)
 
     def __iter__(self):
         for blob in self.blob_list:
