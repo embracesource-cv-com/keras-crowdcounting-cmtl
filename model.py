@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from keras.models import Model, Input
-from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Flatten
+from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Dropout
 from keras.layers.advanced_activations import PReLU
 from utils.spp import SpatialPyramidPooling
 
@@ -37,11 +37,13 @@ def CMTL(input_shape=None, num_classes=10):
     spp_out = SpatialPyramidPooling([1, 2, 4])(hl_prior_1)
     hl_prior_2 = Dense(512)(spp_out)
     hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
+    hl_prior_2 = Dropout(0.5)(hl_prior_2)
     hl_prior_2 = Dense(256)(hl_prior_2)
     hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
+    hl_prior_2 = Dropout(0.5)(hl_prior_2)
     hl_prior_2 = Dense(num_classes)(hl_prior_2)
     hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
-    cls = Activation('softmax', name='output_class')(hl_prior_2)
+    cls = Activation('softmax', name='cls')(hl_prior_2)
 
     # density estimate stage
     den_1 = Conv2D(20, (7, 7), padding='same')(shared)
@@ -63,7 +65,7 @@ def CMTL(input_shape=None, num_classes=10):
     den_2 = PReLU(shared_axes=[1, 2])(den_2)
     den_2 = Conv2DTranspose(8, (4, 4), strides=2, padding='same')(den_2)
     den_2 = PReLU(shared_axes=[1, 2])(den_2)
-    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='output_density')(den_2)
+    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='density')(den_2)
 
     model = Model(inputs=inputs, outputs=[density_map, cls])
     return model
