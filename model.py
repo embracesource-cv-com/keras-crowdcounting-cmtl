@@ -6,9 +6,10 @@
    date:          2019/04/17
 """
 from keras.models import Model, Input
-from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Dropout
+from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Dropout, Lambda, Flatten
 from keras.layers.advanced_activations import PReLU
 from utils.spp import SpatialPyramidPooling
+import tensorflow as tf
 
 
 def CMTL(input_shape=None, num_classes=10):
@@ -40,7 +41,14 @@ def CMTL(input_shape=None, num_classes=10):
 
     # fix different sizes input to the same size output,
     # spp_out shape will be (samples, channels * sum([i * i for i in pool_list])
-    spp_out = SpatialPyramidPooling([1, 2, 4])(hl_prior_1)
+
+    # spp_out = SpatialPyramidPooling([1, 4, 8, 16])(hl_prior_1)
+    spp_out = Lambda(lambda c: tf.image.resize_images(c, [64, 64]))(hl_prior_1)
+    spp_out = MaxPooling2D(2)(spp_out)
+    spp_out = Conv2D(4, (1, 1), padding='same')(spp_out)
+    spp_out = PReLU(shared_axes=[1, 2])(spp_out)
+    spp_out = Flatten()(spp_out)
+
     hl_prior_2 = Dense(512)(spp_out)
     hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
     hl_prior_2 = Dropout(0.5)(hl_prior_2)
