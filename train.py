@@ -8,7 +8,7 @@
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from model import CMTL
-from utils.metrics import MAE, MSE
+from utils.metrics import mae, mse
 from utils.data_loader import DataLoader
 from config import current_config as cfg
 import os
@@ -16,7 +16,7 @@ import argparse
 
 
 def main(args):
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     dataset = args.dataset  # 'A' or 'B'
 
     train_path = cfg.TRAIN_PATH.format(dataset)
@@ -35,11 +35,11 @@ def main(args):
     input_shape = (None, None, 1)
     model = CMTL(input_shape)
     adam = Adam(lr=0.00001)
-    loss = {'density': 'mse', 'cls': 'binary_crossentropy'}
+    loss = {'density': 'mse', 'cls': 'categorical_crossentropy'}
     loss_weights = {'density': 1.0, 'cls': 0.0001}
     print('[INFO] Compiling model ...'.format(dataset))
     model.compile(optimizer=adam, loss=loss, loss_weights=loss_weights,
-                  metrics={'density': [MAE, MSE]})
+                  metrics={'density': [mae, mse], 'cls': 'accuracy'})
 
     # 定义callback
     checkpointer_best_train = ModelCheckpoint(
@@ -48,15 +48,15 @@ def main(args):
     )
     callback_list = [checkpointer_best_train]
 
-    # 随机数据增广
-    print('[INFO] Random data augment ...'.format(dataset))
-    train_X, train_Y_den = train_data_loader.random_augment(train_X, train_Y_den)
+    # # 随机数据增广
+    # print('[INFO] Random data augment ...'.format(dataset))
+    # train_X, train_Y_den = train_data_loader.random_augment(train_X, train_Y_den)
     # 训练
     print('[INFO] Training Part_{} ...'.format(dataset))
     model.fit(train_X,
               {"density": train_Y_den, "cls": train_Y_class},
               validation_data=(val_X, {"density": val_Y_den, "cls": val_Y_class}),
-              batch_size=1, epochs=cfg.EPOCHS, callbacks=callback_list,
+              batch_size=cfg.TRAIN_BATCH_SIZE, epochs=cfg.EPOCHS, callbacks=callback_list,
               class_weight={"cls": class_weights})
 
 
