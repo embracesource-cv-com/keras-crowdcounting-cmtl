@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+"""
+   File Name:     train.py
+   Description:   训练
+   Author:        steven.yi
+   date:          2019/04/17
+"""
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from model import CMTL
 from utils.metrics import MAE, MSE
 from utils.data_loader import DataLoader
-import config as cfg
+from config import current_config as cfg
 import os
 import argparse
 

@@ -1,4 +1,10 @@
 # -*- coding: utf-8 -*-
+"""
+   File Name:     model.py
+   Description:   定义模型
+   Author:        steven.yi
+   date:          2019/04/17
+"""
 from keras.models import Model, Input
 from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Dropout
 from keras.layers.advanced_activations import PReLU
