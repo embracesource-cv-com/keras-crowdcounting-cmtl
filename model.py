@@ -8,8 +8,36 @@
 from keras.models import Model, Input
 from keras.layers import Conv2D, Dense, Activation, Concatenate, MaxPooling2D, Conv2DTranspose, Dropout, Lambda, Flatten
 from keras.layers.advanced_activations import PReLU
-from utils.spp import SpatialPyramidPooling
 import tensorflow as tf
+
+
+def _conv_unit(input_tensor, filters, kernel_size, name):
+    """
+    卷积单元，包括一个卷积核一个PReLU激活
+    :param input_tensor
+    :param filters:
+    :param kernel_size:
+    :param name:
+    :return:
+    """
+    x = Conv2D(filters, kernel_size, padding='same', name='conv_{}'.format(name))(input_tensor)
+    x = PReLU(shared_axes=[1, 2], name="prelu_{}".format(name))(x)
+    return x
+
+
+def _fc_unit(input_tenser, units, name, with_drops=True):
+    """
+    一个全连接单元
+    :param input_tenser:
+    :param units:
+    :param name:
+    :return:
+    """
+    x = Dense(units, name='fc_{}'.format(name))(input_tenser)
+    x = PReLU(shared_axes=[1], name='prelu_{}'.format(name))(x)
+    if with_drops:
+        x = Dropout(0.5)(x)
+    return x
 
 
 def CMTL(input_shape=None, num_classes=10):
@@ -22,64 +50,50 @@ def CMTL(input_shape=None, num_classes=10):
     inputs = Input(shape=input_shape)
 
     # shared layer
-    shared = Conv2D(16, (9, 9), padding='same')(inputs)
-    shared = PReLU(shared_axes=[1, 2])(shared)
-    shared = Conv2D(32, (7, 7), padding='same')(shared)
-    shared = PReLU(shared_axes=[1, 2])(shared)
+    x = _conv_unit(inputs, 16, 9, 'base_1')
+    x = _conv_unit(x, 32, 7, 'base_2')
+    shared = x
 
     # high-level prior stage
-    hl_prior_1 = Conv2D(16, (9, 9), padding='same')(shared)
-    hl_prior_1 = PReLU(shared_axes=[1, 2])(hl_prior_1)
-    hl_prior_1 = MaxPooling2D(2)(hl_prior_1)
-    hl_prior_1 = Conv2D(32, (7, 7), padding='same')(hl_prior_1)
-    hl_prior_1 = PReLU(shared_axes=[1, 2])(hl_prior_1)
-    hl_prior_1 = MaxPooling2D(2)(hl_prior_1)
-    hl_prior_1 = Conv2D(16, (7, 7), padding='same')(hl_prior_1)
-    hl_prior_1 = PReLU(shared_axes=[1, 2])(hl_prior_1)
-    hl_prior_1 = Conv2D(8, (7, 7), padding='same')(hl_prior_1)
-    hl_prior_1 = PReLU(shared_axes=[1, 2])(hl_prior_1)
+    x = _conv_unit(x, 16, 9, name='prior_1')
+    x = _conv_unit(x, 32, 7, name='prior_2')
+    x = _conv_unit(x, 16, 7, name='prior_3')
+    x = _conv_unit(x, 8, 7, name='prior_4')
+    prior = x
 
-    # fix different sizes input to the same size output,
-    # spp_out shape will be (samples, channels * sum([i * i for i in pool_list])
+    # 空间池化，通道变为4
+    x = Lambda(lambda c: tf.image.resize_images(c, [64, 64]))(prior)
+    x = MaxPooling2D(2)(x)
+    x = _conv_unit(x, 4, 1, name='prior_5')
+    x = Flatten()(x)
 
-    # spp_out = SpatialPyramidPooling([1, 4, 8, 16])(hl_prior_1)
-    spp_out = Lambda(lambda c: tf.image.resize_images(c, [64, 64]))(hl_prior_1)
-    spp_out = MaxPooling2D(2)(spp_out)
-    spp_out = Conv2D(4, (1, 1), padding='same')(spp_out)
-    spp_out = PReLU(shared_axes=[1, 2])(spp_out)
-    spp_out = Flatten()(spp_out)
-
-    hl_prior_2 = Dense(512)(spp_out)
-    hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
-    hl_prior_2 = Dropout(0.5)(hl_prior_2)
-    hl_prior_2 = Dense(256)(hl_prior_2)
-    hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
-    hl_prior_2 = Dropout(0.5)(hl_prior_2)
-    hl_prior_2 = Dense(num_classes)(hl_prior_2)
-    hl_prior_2 = PReLU(shared_axes=[1])(hl_prior_2)
-    cls = Activation('softmax', name='cls')(hl_prior_2)
+    x = _fc_unit(x, 512, 'pre_cls_1')
+    x = _fc_unit(x, 256, 'pre_cls_2')
+    x = _fc_unit(x, num_classes, 'pre_cls_3', with_drops=False)
+    cls = Activation('softmax', name='cls')(x)
 
     # density estimate stage
-    den_1 = Conv2D(20, (7, 7), padding='same')(shared)
-    den_1 = PReLU(shared_axes=[1, 2])(den_1)
-    den_1 = MaxPooling2D(2)(den_1)
-    den_1 = Conv2D(40, (5, 5), padding='same')(den_1)
-    den_1 = PReLU(shared_axes=[1, 2])(den_1)
-    den_1 = MaxPooling2D(2)(den_1)
-    den_1 = Conv2D(20, (5, 5), padding='same')(den_1)
-    den_1 = PReLU(shared_axes=[1, 2])(den_1)
-    den_1 = Conv2D(10, (5, 5), padding='same')(den_1)
-    den_1 = PReLU(shared_axes=[1, 2])(den_1)
-    merges = Concatenate(axis=-1)([hl_prior_1, den_1])
-    den_2 = Conv2D(24, (3, 3), padding='same')(merges)
-    den_2 = PReLU(shared_axes=[1, 2])(den_2)
-    den_2 = Conv2D(32, (3, 3), padding='same')(den_2)
-    den_2 = PReLU(shared_axes=[1, 2])(den_2)
-    den_2 = Conv2DTranspose(16, (4, 4), strides=2, padding='same')(den_2)
-    den_2 = PReLU(shared_axes=[1, 2])(den_2)
-    den_2 = Conv2DTranspose(8, (4, 4), strides=2, padding='same')(den_2)
-    den_2 = PReLU(shared_axes=[1, 2])(den_2)
-    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='density')(den_2)
-
+    x = _conv_unit(shared, 20, 7, name='dens_1')
+    x = _conv_unit(x, 40, 5, name='dens_2')
+    x = _conv_unit(x, 20, 5, name='dens_3')
+    x = _conv_unit(x, 10, 5, name='dens_4')
+    # 合并先验
+    merges = Concatenate(axis=-1)([prior, x])
+    x = _conv_unit(merges, 24, 3, 'dens_5')
+    x = _conv_unit(x, 32, 3, 'dens_6')
+    x = Conv2DTranspose(16, (4, 4), strides=2, padding='same', name='conv_dens_7')(x)
+    x = PReLU(shared_axes=[1, 2], name='prelu_dens_7')(x)
+    x = Conv2DTranspose(16, (4, 4), strides=2, padding='same', name='conv_dens_8')(x)
+    x = PReLU(shared_axes=[1, 2], name='prelu_dens_8')(x)
+    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='conv_density')(x)
     model = Model(inputs=inputs, outputs=[density_map, cls])
     return model
+
+
+def main():
+    m = CMTL(input_shape=(200, 200, 1), num_classes=10)
+    m.summary()
+
+
+if __name__ == '__main__':
+    main()
