@@ -70,8 +70,8 @@ class DataLoader(Sequence):
             self.min_gt_count = min(self.min_gt_count, gt_count)
             self.max_gt_count = max(self.max_gt_count, gt_count)
             blob = dict()
-            blob['data'] = img
-            blob['gt_den'] = den
+            blob['data'] = img[..., np.newaxis]  # 增加通道维，[H,W,1]
+            blob['gt_den'] = den[..., np.newaxis]
             blob['gt_count'] = gt_count
             blob['fname'] = fname
             self.blob_list.append(blob)
