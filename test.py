@@ -14,7 +14,7 @@ import os
 
 
 def main(args):
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     dataset = args.dataset  # 'A' or 'B'
     output_dir = args.output_dir
     weight_path = args.weight_path
@@ -29,8 +29,7 @@ def main(args):
     # load test set
     data_loader = DataLoader(cfg.TEST_PATH,
                              cfg.TEST_GT_PATH,
-                             shuffle=False,
-                             gt_downsample=True)
+                             shuffle=False)
     # load model
     print('[INFO] Load model ...')
     model = CMTL(input_shape=(None, None, 1))
@@ -41,11 +40,11 @@ def main(args):
     mae = 0.0
     mse = 0.0
     acc = 0.0
-    for blob in data_loader:
+    for blob in data_loader.blob_list:
         img = blob['data']
         gt_den = blob['gt_den']
         gt_cls = np.argmax(blob['gt_class'])
-        pred_den, pred_cls = model.predict(np.expand_dims(img, axis=0))
+        pred_den, pred_cls = model.predict(img[np.newaxis, ...])
         if np.argmax(pred_cls[0]) == gt_cls:
             acc += 1
         gt_count = np.sum(gt_den)
