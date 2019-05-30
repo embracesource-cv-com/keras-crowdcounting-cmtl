@@ -56,7 +56,9 @@ def CMTL(input_shape=None, num_classes=10):
 
     # high-level prior stage
     x = _conv_unit(x, 16, 9, name='prior_1')
+    x = MaxPooling2D(2)(x)
     x = _conv_unit(x, 32, 7, name='prior_2')
+    x = MaxPooling2D(2)(x)
     x = _conv_unit(x, 16, 7, name='prior_3')
     x = _conv_unit(x, 8, 7, name='prior_4')
     prior = x
@@ -74,7 +76,9 @@ def CMTL(input_shape=None, num_classes=10):
 
     # density estimate stage
     x = _conv_unit(shared, 20, 7, name='dens_1')
+    x = MaxPooling2D(2)(x)
     x = _conv_unit(x, 40, 5, name='dens_2')
+    x = MaxPooling2D(2)(x)
     x = _conv_unit(x, 20, 5, name='dens_3')
     x = _conv_unit(x, 10, 5, name='dens_4')
     # 合并先验
@@ -85,7 +89,7 @@ def CMTL(input_shape=None, num_classes=10):
     x = PReLU(shared_axes=[1, 2], name='prelu_dens_7')(x)
     x = Conv2DTranspose(16, (4, 4), strides=2, padding='same', name='conv_dens_8')(x)
     x = PReLU(shared_axes=[1, 2], name='prelu_dens_8')(x)
-    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='conv_density')(x)
+    density_map = Conv2D(1, (1, 1), padding='same', activation='relu', name='density')(x)
     model = Model(inputs=inputs, outputs=[density_map, cls])
     return model
 
