@@ -13,51 +13,67 @@ from utils.data_loader import DataLoader
 from config import current_config as cfg
 import os
 import argparse
+import tensorflow as tf
+import keras
+
+
+def set_gpu_growth():
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    config = tf.ConfigProto(allow_soft_placement=True)  # because no supported kernel for GPU devices is available
+    config.gpu_options.allow_growth = True
+    session = tf.Session(config=config)
+    keras.backend.set_session(session)
 
 
 def main(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    set_gpu_growth()
     dataset = args.dataset  # 'A' or 'B'
+    cfg.init_path(dataset)  # 初始化路径名
 
-    train_path = cfg.TRAIN_PATH.format(dataset)
-    train_gt_path = cfg.TRAIN_GT_PATH.format(dataset)
-    val_path = cfg.VAL_PATH.format(dataset)
-    val_gt_path = cfg.VAL_GT_PATH.format(dataset)
+    # 加载数据生成器
+    train_data_gen = DataLoader(cfg.TRAIN_PATH,
+                                cfg.TRAIN_GT_PATH,
+                                shuffle=True)
+    val_data_gen = DataLoader(cfg.VAL_PATH,
+                              cfg.VAL_GT_PATH)
 
-    train_data_loader = DataLoader(train_path, train_gt_path, shuffle=True, gt_downsample=False)
-    val_data_loader = DataLoader(val_path, val_gt_path, shuffle=False, gt_downsample=False)
-    # 加载数据
-    train_X, train_Y_den, train_Y_class = train_data_loader.load_all()
-    val_X, val_Y_den, val_Y_class = val_data_loader.load_all()
-    class_weights = train_data_loader.get_class_weights()
+    class_weights = train_data_gen.get_class_weights()
 
     # 定义模型 & 编译
     input_shape = (None, None, 1)
     model = CMTL(input_shape)
-    adam = Adam(lr=0.00001)
+    adam = Adam(lr=1e-5)
     loss = {'density': 'mse', 'cls': 'categorical_crossentropy'}
-    loss_weights = {'density': 1.0, 'cls': 0.0001}
+    loss_weights = {'density': 1.0, 'cls': 1e-4}
     print('[INFO] Compiling model ...'.format(dataset))
     model.compile(optimizer=adam, loss=loss, loss_weights=loss_weights,
                   metrics={'density': [mae, mse], 'cls': 'accuracy'})
 
     # 定义callback
-    checkpointer_best_train = ModelCheckpoint(
-        filepath=os.path.join(cfg.MODEL_DIR, 'mcnn_' + dataset + '_train.hdf5'),
-        monitor='loss', verbose=1, save_best_only=True, mode='min'
+    check_pointer = ModelCheckpoint(
+        filepath=cfg.WEIGHT_PATH,
+        monitor='loss',
+        verbose=1,
+        save_weights_only=True,
+        save_best_only=True,
+        mode='min'
     )
-    callback_list = [checkpointer_best_train]
+    callback_list = [check_pointer]
 
     # # 随机数据增广
     # print('[INFO] Random data augment ...'.format(dataset))
     # train_X, train_Y_den = train_data_loader.random_augment(train_X, train_Y_den)
     # 训练
     print('[INFO] Training Part_{} ...'.format(dataset))
-    model.fit(train_X,
-              {"density": train_Y_den, "cls": train_Y_class},
-              validation_data=(val_X, {"density": val_Y_den, "cls": val_Y_class}),
-              batch_size=cfg.TRAIN_BATCH_SIZE, epochs=cfg.EPOCHS, callbacks=callback_list,
-              class_weight={"cls": class_weights})
+    model.fit_generator(train_data_gen,
+                        validation_data=val_data_gen,
+                        epochs=cfg.EPOCHS,
+                        callbacks=callback_list,
+                        class_weight={"cls": class_weights},
+                        use_multiprocessing=True,
+                        workers=4,
+                        verbose=1)
 
 
 if __name__ == '__main__':
