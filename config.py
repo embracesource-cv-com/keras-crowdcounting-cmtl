@@ -26,11 +26,9 @@ class Config(object):
     # 测试集Ground_Truth目录
     TEST_GT_PATH = '/opt/dataset/crowd_counting/shanghaitech/original/part_{}_final/test_data/ground_truth_csv/'
 
-    EPOCHS = 50
+    EPOCHS = 300
     TRAIN_BATCH_SIZE = 1
     VAL_BATCH_SIZE = 1
-
-    STD = 0.05
 
     def init_path(self, ds):
         """

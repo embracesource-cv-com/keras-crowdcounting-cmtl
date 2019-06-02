@@ -7,6 +7,7 @@
 """
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
+from utils.losses import l2
 from model import CMTL
 from utils.metrics import mae, mse
 from utils.data_loader import DataLoader
@@ -44,11 +45,14 @@ def main(args):
     input_shape = (None, None, 1)
     model = CMTL(input_shape)
     adam = Adam(lr=1e-5)
-    loss = {'density': 'mse', 'cls': 'categorical_crossentropy'}
+    loss = {'density': l2, 'cls': keras.losses.categorical_crossentropy}
     loss_weights = {'density': 1.0, 'cls': 1e-4}
     print('[INFO] Compiling model ...'.format(dataset))
     model.compile(optimizer=adam, loss=loss, loss_weights=loss_weights,
                   metrics={'density': [mae, mse], 'cls': 'accuracy'})
+    # 加载与训练模型
+    if args.weight_path is not None:
+        model.load_weights(args.weight_path, by_name=True)
 
     # 定义callback
     check_pointer = ModelCheckpoint(
@@ -57,7 +61,7 @@ def main(args):
         verbose=1,
         save_weights_only=True,
         save_best_only=True,
-        mode='min'
+        period=5
     )
     callback_list = [check_pointer]
 
@@ -69,6 +73,7 @@ def main(args):
     model.fit_generator(train_data_gen,
                         validation_data=val_data_gen,
                         epochs=cfg.EPOCHS,
+                        initial_epoch=args.init_epoch,
                         callbacks=callback_list,
                         class_weight={"cls": class_weights},
                         use_multiprocessing=True,
@@ -79,5 +84,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset", help="the dataset you want to train", choices=['A', 'B'])
+    parser.add_argument("--init_epoch", type=int, default=0, help="init epoch")
+    parser.add_argument("--weight_path", type=str, default=None, help="weight path")
     args = parser.parse_args()
     main(args)
