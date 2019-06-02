@@ -18,7 +18,7 @@ keras复现人群数量估计网络"[CNN-based Cascaded Multi-task Learning of H
 
 2. 安装依赖库
     ```shell
-    cd keras-mcnn
+    cd keras-crowdcounting-cmtl
     pip install -r requirements.txt
     ```
 
