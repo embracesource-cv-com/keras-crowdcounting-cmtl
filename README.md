@@ -48,7 +48,7 @@ keras复现人群数量估计网络"[CNN-based Cascaded Multi-task Learning of H
 
 ## 测试
 
-a)下载与与训练模型
+a)下载训练模型
 
 [cmtl-A.235.h5](https://pan.baidu.com/s/1t0vyli5z7f77n2GHdlXqww) 提取码:prxi、[cmtl-B.210.h5](https://pan.baidu.com/s/1n50pxiWAzAJk_LXgZl2heg) 提取码:7if7
 
