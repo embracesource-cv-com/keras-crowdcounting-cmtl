@@ -1,6 +1,6 @@
 # keras-crowdcounting-cmtl
 
-keras复现人群数量估计网络"CNN-based Cascaded Multi-task Learning of High-level Prior and Density Estimation for Crowd Counting"。
+keras复现人群数量估计网络"[CNN-based Cascaded Multi-task Learning of High-level Prior and Density Estimation for Crowd Counting](https://arxiv.org/pdf/1707.09605.pdf)"。
 本工程的实现主要参考[crowdcount-cascaded-mtl](https://github.com/svishwa/crowdcount-cascaded-mtl)和[keras-mcnn](https://github.com/embracesource-cv-com/keras-mcnn)
 在ShanghaiTech数据集上训练和测试效果如下：
 
